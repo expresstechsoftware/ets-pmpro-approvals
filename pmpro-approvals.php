@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: Paid Memberships Pro - Approvals Add On
+Plugin Name: Paid Memberships Pro - Approvals Add On By Expresstech
 Plugin URI: https://www.paidmembershipspro.com/add-ons/approval-process-membership/
 Description: Grants administrators the ability to approve/deny memberships after signup.
 Version: 1.4.3
@@ -11,12 +11,17 @@ Domain Path: /languages
 */
 
 define( 'PMPRO_APP_DIR', dirname( __FILE__ ) );
+// create plugin url constant.
+define( 'PMPRO_APP_URL', plugin_dir_url( __FILE__ ) );
+define('PMPRO_APPROVAL_VERSION', '1.0');
 
 /**
  * Only load approvals after plugins have been loaded. Otherwise it may be loaded too early (e.g., before PMPro).
  */
 function pmpro_approvals_plugins_loaded() {
 	require PMPRO_APP_DIR . '/classes/class.approvalemails.php';
+	require PMPRO_APP_DIR . '/classes/class.pmprogateway_etsstripe.php';
+
 }
 add_action( 'plugins_loaded', 'pmpro_approvals_plugins_loaded' );
 
@@ -71,6 +76,9 @@ class PMPro_Approvals {
 		add_action( 'admin_bar_menu', array( 'PMPro_Approvals', 'admin_bar_menu' ), 1000 );
 		add_action( 'admin_init', array( 'PMPro_Approvals', 'admin_init' ) );
 
+		// Add script for front end.
+		add_action( 'wp_enqueue_scripts', array( 'PMPro_Approvals', 'pmpro_approvals_add_script' ) );
+
 		//add user actions to the approvals page
 		add_filter( 'pmpro_approvals_user_row_actions', array( 'PMPro_Approvals', 'pmpro_approvals_user_row_actions' ), 10, 2 );
 
@@ -123,6 +131,19 @@ class PMPro_Approvals {
 
 		//plugin row meta
 		add_filter( 'plugin_row_meta', array( 'PMPro_Approvals', 'plugin_row_meta' ), 10, 2 );
+	}
+
+	/**
+	* Added style on frontend
+	*/
+	public static function pmpro_approvals_add_script(){
+		wp_register_style(
+			'pmpro-approval-style',
+			PMPRO_APP_URL . 'assets/css/ets-pmpro-approval-frontend.css',
+			false,
+			PMPRO_APPROVAL_VERSION
+		);
+		wp_enqueue_style('pmpro-approval-style');
 	}
 
 	/**
@@ -1027,6 +1048,32 @@ class PMPro_Approvals {
 		}
 
 		do_action( 'pmpro_approvals_before_approve_member', $user_id, $level_id );
+		//complete intent payment
+		$last_order = new MemberOrder();
+		$order_status = 'success';
+		 $last_order->getLastMemberOrder( $user_id, $order_status );
+		//$order = $last_order->getMemberOrderByID($last_order_id);
+		$payment_indent_id = 'pi_1LaKClEh60sQ5jrB9BYLYAEa';
+		$payment_indent_id = $last_order->notes;
+		$payment_indent = $last_order->Gateway->retrieve_payment_intent($payment_indent_id);
+		if (! $last_order->payment_transaction_id ) {
+			$params = array(
+				'expand' => array(
+					'payment_method',
+					'customer'
+				),
+			);
+			$confirm_payment = $payment_indent->confirm( $params );
+			if ( is_string( $confirm_payment ) ) {
+				$order->error      = __( 'Error processing payment intent.', 'paid-memberships-pro' ) . ' ' . $confirm_payment;
+				$order->shorterror = $order->error;
+				return false;
+			}
+			// Payment should now be processed.
+			$payment_transaction_id = $confirm_payment->charges->data[0]->id;
+			$last_order->payment_transaction_id = $payment_transaction_id;
+		}
+		$last_order->saveOrder();
 
 		// update user meta to save timestamp and user who approved.
 		update_user_meta(
@@ -1037,6 +1084,7 @@ class PMPro_Approvals {
 				'approver'  => $current_user->user_login,
 			)
 		);
+
 
 		// delete the approval count cache.
 		delete_transient( 'pmpro_approvals_approval_count' );
