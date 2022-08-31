@@ -292,9 +292,9 @@ class PMProGateway_etsStripe extends PMProGateway
 			// Break the country cache in case new credentials were saved.
 			delete_transient( 'pmpro_stripe_account_country' );
 		}
-
+		var_dump($gateway);
 		?>
-			<tr class="pmpro_settings_divider gateway gateway_stripe" <?php if ( $gateway != "etsstripe" ) { ?>style="display: none;"<?php } ?>>		
+			<tr class="pmpro_settings_divider gateway gateway_etsstripe" <?php if ( $gateway != "etsstripe" ) { ?>style="display: none;"<?php } ?>>		
 			<td colspan="2">
 				<hr />
 				<h2 class="pmpro_stripe_legacy_keys" <?php if( ! self::show_legacy_keys_settings() ) {?>style="display: none;"<?php }?>><?php esc_html_e( 'Stripe API Settings (Legacy)', 'paid-memberships-pro' ); ?></h2>
@@ -319,7 +319,7 @@ class PMProGateway_etsStripe extends PMProGateway
 				<?php } ?>
 			</td>
 		</tr>
-		<tr class="gateway pmpro_stripe_legacy_keys <?php if ( self::show_legacy_keys_settings() ) { echo 'gateway_stripe'; } ?>" <?php if ( $gateway != "etsstripe" || ! self::show_legacy_keys_settings() ) { ?>style="display: none;"<?php } ?>>
+		<tr class="gateway pmpro_stripe_legacy_keys <?php if ( self::show_legacy_keys_settings() ) { echo 'gateway_etsstripe'; } ?>" <?php if ( $gateway != "etsstripe" || ! self::show_legacy_keys_settings() ) { ?>style="display: none;"<?php } ?>>
 			<th scope="row" valign="top">
 				<label for="stripe_publishablekey"><?php _e( 'Publishable Key', 'paid-memberships-pro' ); ?>:</label>
 			</th>
@@ -335,7 +335,7 @@ class PMProGateway_etsStripe extends PMProGateway
 				?>
 			</td>
 		</tr>
-		<tr class="gateway pmpro_stripe_legacy_keys <?php if ( self::show_legacy_keys_settings() ) { echo 'gateway_stripe'; } ?>" <?php if ( $gateway != "etsstripe" ||  ! self::show_legacy_keys_settings() ) { ?>style="display: none;"<?php } ?>>
+		<tr class="gateway pmpro_stripe_legacy_keys <?php if ( self::show_legacy_keys_settings() ) { echo 'gateway_etsstripe'; } ?>" <?php if ( $gateway != "etsstripe" ||  ! self::show_legacy_keys_settings() ) { ?>style="display: none;"<?php } ?>>
 			<th scope="row" valign="top">
 				<label for="stripe_secretkey"><?php _e( 'Secret Key', 'paid-memberships-pro' ); ?>:</label>
 			</th>
@@ -343,7 +343,7 @@ class PMProGateway_etsStripe extends PMProGateway
 				<input type="text" id="stripe_secretkey" name="stripe_secretkey" value="<?php echo esc_attr( $values['stripe_secretkey'] ) ?>" autocomplete="off" class="regular-text code pmpro-admin-secure-key" />
 			</td>
 		</tr>		
-		<tr class="gateway pmpro_stripe_legacy_keys <?php if ( self::show_legacy_keys_settings() ) { echo 'gateway_stripe'; } ?>" <?php if ( $gateway != "etsstripe" || ! self::show_legacy_keys_settings() ) { ?>style="display: none;"<?php } ?>>
+		<tr class="gateway pmpro_stripe_legacy_keys <?php if ( self::show_legacy_keys_settings() ) { echo 'gateway_etsstripe'; } ?>" <?php if ( $gateway != "etsstripe" || ! self::show_legacy_keys_settings() ) { ?>style="display: none;"<?php } ?>>
 			<th scope="row" valign="top">
 				<label><?php esc_html_e( 'Webhook', 'paid-memberships-pro' ); ?>:</label>
 			</th>
@@ -384,13 +384,13 @@ class PMProGateway_etsStripe extends PMProGateway
 				<code><?php echo self::get_site_webhook_url(); ?></code></p>
 			</td>
 		</tr>
-		<tr class="pmpro_settings_divider gateway gateway_stripe" <?php if ( $gateway != "etsstripe" ) { ?>style="display: none;"<?php } ?>>		
+		<tr class="pmpro_settings_divider gateway gateway_etsstripe" <?php if ( $gateway != "etsstripe" ) { ?>style="display: none;"<?php } ?>>		
 			<td colspan="2">
 				<hr />
 				<h2><?php esc_html_e( 'Other Stripe Settings', 'paid-memberships-pro' ); ?></h2>				
 			</td>
 		</tr>
-		<tr class="gateway gateway_stripe" <?php if ( $gateway != "etsstripe" ) { ?>style="display: none;"<?php } ?>>
+		<tr class="gateway gateway_etsstripe" <?php if ( $gateway != "etsstripe" ) { ?>style="display: none;"<?php } ?>>
 			<th><?php _e( 'Stripe API Version', 'paid-memberships-pro' ); ?>:</th>
 			<td><code><?php echo PMPRO_ETS_STRIPE_API_VERSION; ?></code></td>
 		</tr>
@@ -1783,7 +1783,7 @@ class PMProGateway_etsStripe extends PMProGateway
 		}
 
 		?>
-		<tr class="pmpro_settings_divider gateway gateway_stripe_<?php echo $environment; ?>"
+		<tr class="pmpro_settings_divider gateway gateway_etsstripe_<?php echo $environment; ?>"
 		    <?php if ( $gateway != "etsstripe" || $gateway_environment != $environment ) { ?>style="display: none;"<?php } ?>>
             <td colspan="2">
 				<hr />
@@ -1820,7 +1820,7 @@ class PMProGateway_etsStripe extends PMProGateway
 				<?php } ?>
             </td>
         </tr>
-		<tr class="gateway gateway_stripe_<?php echo $environment; ?>" <?php if ( $gateway != "etsstripe" || $gateway_environment != $environment ) { ?>style="display: none;"<?php } ?>>
+		<tr class="gateway gateway_etsstripe_<?php echo $environment; ?>" <?php if ( $gateway != "etsstripe" || $gateway_environment != $environment ) { ?>style="display: none;"<?php } ?>>
             <th scope="row" valign="top">
                 <label><?php esc_html_e( 'Stripe Connection:', 'paid-memberships-pro' ); ?></label>
             </th>
@@ -1878,7 +1878,7 @@ class PMProGateway_etsStripe extends PMProGateway
 				<input type='hidden' name='<?php echo $environment; ?>_stripe_connect_publishablekey' id='<?php echo $environment; ?>_stripe_connect_publishablekey' value='<?php echo esc_attr( $values[ $environment . '_stripe_connect_publishablekey'] ) ?>'/>
 			</td>
         </tr>
-		<tr class="gateway gateway_stripe_<?php echo $environment; ?>" <?php if ( $gateway != "etsstripe" || $gateway_environment != $environment ) { ?>style="display: none;"<?php } ?>>
+		<tr class="gateway gateway_etsstripe_<?php echo $environment; ?>" <?php if ( $gateway != "etsstripe" || $gateway_environment != $environment ) { ?>style="display: none;"<?php } ?>>
             <th scope="row" valign="top">
                 <label><?php esc_html_e( 'Webhook', 'paid-memberships-pro' ); ?>:</label>
             </th>
@@ -2414,17 +2414,17 @@ class PMProGateway_etsStripe extends PMProGateway
 	 * @param MemberOrder $order to pull subscription details from.
 	 * @return Stripe_Subscription|bool false if error.
 	 */
-	private function create_subscription_for_customer_from_order( $customer_id, $order ) {
+	public function create_subscription_for_customer_from_order( $customer_id, $order ) {
 		$subtotal = $order->PaymentAmount;
 		$tax      = $order->getTaxForPrice( $subtotal );
 		$amount   = pmpro_round_price( (float) $subtotal + (float) $tax );
-
 		// Set up the subscription.
 		$product_id = $this->get_product_id_for_level( $order->membership_id );
 		if ( empty( $product_id ) ) {
 			$order->error = esc_html__( 'Cannot find product for membership level.', 'paid-memberships-pro' );
 			return false;
 		}
+
 
 		$price = $this->get_price_for_product( $product_id, $amount, $order->BillingPeriod, $order->BillingFrequency );
 		if ( empty( $price ) ) {

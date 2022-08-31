@@ -131,6 +131,16 @@ class PMPro_Approvals {
 
 		//plugin row meta
 		add_filter( 'plugin_row_meta', array( 'PMPro_Approvals', 'plugin_row_meta' ), 10, 2 );
+		add_filter( 'pmpro_allowed_refunds_gateways', array( 'PMPro_Approvals', 'pmpro_allowed_refunds_gateways' ), 10 );
+	}
+
+	public static function pmpro_allowed_refunds_gateways($allowed_gateways)
+	{
+		//$allowed_gateways = array('etsstripe');
+
+		array_push($allowed_gateways,'etsstripe');
+		
+		return $allowed_gateways;
 	}
 
 	/**
@@ -1053,9 +1063,12 @@ class PMPro_Approvals {
 		$order_status = 'success';
 		 $last_order->getLastMemberOrder( $user_id, $order_status );
 		//$order = $last_order->getMemberOrderByID($last_order_id);
-		$payment_indent_id = 'pi_1LaKClEh60sQ5jrB9BYLYAEa';
-		$payment_indent_id = $last_order->notes;
-		$payment_indent = $last_order->Gateway->retrieve_payment_intent($payment_indent_id);
+		//$payment_indent_id = 'pi_1LaKClEh60sQ5jrB9BYLYAEa';
+		$payment_intent_id = $last_order->notes;
+		$payment_intent = $last_order->Gateway->retrieve_payment_intent($payment_intent_id);
+		$customer_id = $payment_intent->customer;
+		
+
 		if (! $last_order->payment_transaction_id ) {
 			$params = array(
 				'expand' => array(
@@ -1063,7 +1076,7 @@ class PMPro_Approvals {
 					'customer'
 				),
 			);
-			$confirm_payment = $payment_indent->confirm( $params );
+			$confirm_payment = $payment_intent->confirm( $params );
 			if ( is_string( $confirm_payment ) ) {
 				$order->error      = __( 'Error processing payment intent.', 'paid-memberships-pro' ) . ' ' . $confirm_payment;
 				$order->shorterror = $order->error;
@@ -1073,6 +1086,41 @@ class PMPro_Approvals {
 			$payment_transaction_id = $confirm_payment->charges->data[0]->id;
 			$last_order->payment_transaction_id = $payment_transaction_id;
 		}
+		/*if ( pmpro_isLevelRecurring( $user_level ) && ! $last_order->subscription_transaction_id ) {
+			$subscription = $last_order->Gateway->create_subscription_for_customer_from_order( $customer_id, $last_order );
+			$last_order->PaymentAmount = $last_order->subtotal;
+			var_dump($last_order);
+			die();
+			if ( empty( $subscription ) ) {
+				// There was an issue creating the subscription.
+				$last_order->error      = __( 'Error creating subscription for customer.', 'paid-memberships-pro' );
+				$last_order->shorterror = $order->error;
+				return false;
+			}
+			$last_order->stripe_subscription = $subscription;
+			$setup_intent = $subscription->pending_setup_intent;
+
+			if ( ! empty( $setup_intent->status ) && 'requires_action' === $setup_intent->status ) {
+				// We will need to reload the page to authenticate, so save the subscription ID in the setup intent
+				// so that we don't lose it.
+				$setup_intent = $last_order->Gateway->add_subscription_id_to_setup_intent( $setup_intent, $subscription->id );
+				if ( is_string( $setup_intent ) ) {
+					$last_order->error      = $setup_intent;
+					$last_order->shorterror = $last_order->error;
+					return false;
+				}
+				$last_order->stripe_setup_intent = $setup_intent;
+				$last_order->errorcode = true;
+				$last_order->error     = __( 'Customer authentication is required to finish setting up your subscription. Please complete the verification steps issued by your payment provider.', 'paid-memberships-pro' );
+	
+				return false;
+			}
+
+			// Successfully created a subscription.
+			$subscription_transaction_id = $subscription->id;
+			$last_order->subscription_transaction_id = $subscription_transaction_id;
+
+		}*/
 		$last_order->saveOrder();
 
 		// update user meta to save timestamp and user who approved.
