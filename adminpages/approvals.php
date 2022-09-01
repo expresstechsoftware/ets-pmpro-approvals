@@ -159,7 +159,10 @@ selected="selected"<?php } ?>><?php _e( 'All Levels', 'pmpro-approvals' ); ?></o
 				<th><?php _e( 'Name', 'pmpro-approvals' ); ?></th>				
 				<th><?php _e( 'Email', 'pmpro-approvals' ); ?></th>
 				<?php do_action( 'pmpro_approvals_list_extra_cols_header', $theusers ); ?>
-				<th><?php _e( 'Membership', 'pmpro-approvals' ); ?></th>					
+				<th><?php _e( 'Membership', 'pmpro-approvals' ); ?></th>			
+				<th><?php _e( 'Professional Title', 'pmpro-approvals' ); ?></th>			
+				<th><?php _e( 'View CV', 'pmpro-approvals' ); ?></th>
+				<th><?php _e( 'Sponsorship letter', 'pmpro-approvals' ); ?></th>
 				<th><?php _e( 'Approval Status', 'pmpro-approvals' ); ?></th>
 				<th><a href="<?php echo admin_url( 'admin.php?page=pmpro-approvals&s=' . esc_attr( $s ) . '&limit=' . $limit . '&pn=' . $pn . '&sortby=user_registered' ); ?>
 										<?php
@@ -173,8 +176,22 @@ selected="selected"<?php } ?>><?php _e( 'All Levels', 'pmpro-approvals' ); ?></o
 				$count = 0;
 			foreach ( $theusers as $auser ) {
 				//get meta
+				$professional_title = '-';
 				$theuser                   = get_userdata( $auser->ID );
 				$theuser->membership_level = pmpro_getMembershipLevelForUser( $theuser->ID );
+				if ( get_user_meta($theuser->ID,'professional_title', true) ) {
+					$professional_title = get_user_meta($theuser->ID,'professional_title', true);
+				}
+				$fullurl = '';
+				$document_cv = get_user_meta($theuser->ID,'document_cv', true);
+				if ( $document_cv && is_array($document_cv) ) {
+					$fullurl = $document_cv['fullurl'];
+				}
+				$letter_url = '';
+				$sponsorship_letter = get_user_meta($theuser->ID,'document_sponsorletter', true);
+				if ( $sponsorship_letter && is_array($sponsorship_letter) ) {
+					$letter_url = $sponsorship_letter['fullurl'];
+				}
 				?>
 					<tr 
 					<?php
@@ -206,7 +223,7 @@ class="alternate"<?php } ?>>
 								echo $out;
 							}
 								?>
-							</td>
+						</td>
 							<td><?php echo trim( $theuser->first_name . ' ' . $theuser->last_name ); ?></td>							
 							<td><a href="mailto:<?php echo $theuser->user_email; ?>"><?php echo $theuser->user_email; ?></a></td>
 							<?php do_action( 'pmpro_approvals_list_extra_cols_body', $theuser ); ?>						
@@ -214,6 +231,17 @@ class="alternate"<?php } ?>>
 								<?php
 								echo $auser->membership;
 								?>
+							</td>
+							<td>
+								<?php
+								echo $professional_title;
+								?>
+							</td>
+							<td>
+								<a href="<?php echo $fullurl;?>" target="_blank"><?php _e( 'View CV', 'pmpro-approvals' ); ?></a>
+							</td>
+							<td>
+								<a href="<?php echo $letter_url;?>" target="_blank"><?php _e( 'View letter', 'pmpro-approvals' ); ?></a>
 							</td>						
 							<td>										
 								<?php
@@ -229,7 +257,7 @@ class="alternate"<?php } ?>>
 
 										//link to unapprove
 										?>
-										[<a href="javascript:askfirst('Are you sure you want to reset approval for <?php echo $theuser->user_login; ?>?', '?page=pmpro-approvals&s=<?php echo esc_attr( $s ); ?>&l=<?php echo $l; ?>&limit=<?php echo intval( $limit ); ?>&status=<?php echo $status; ?>&sortby=<?php echo $sortby; ?>&sortorder=<?php echo $sortorder; ?>&pn=<?php echo intval( $pn ); ?>&unapprove=<?php echo $theuser->ID; ?>&pmpro_approvals_nonce=<?php echo urlencode( $pmpro_approvals_nonce ); ?>');">X</a>]
+										<!-- [<a href="javascript:askfirst('Are you sure you want to reset approval for <?php echo $theuser->user_login; ?>?', '?page=pmpro-approvals&s=<?php echo esc_attr( $s ); ?>&l=<?php echo $l; ?>&limit=<?php echo intval( $limit ); ?>&status=<?php echo $status; ?>&sortby=<?php echo $sortby; ?>&sortorder=<?php echo $sortorder; ?>&pn=<?php echo intval( $pn ); ?>&unapprove=<?php echo $theuser->ID; ?>&pmpro_approvals_nonce=<?php echo urlencode( $pmpro_approvals_nonce ); ?>');">X</a>] -->
 										<?php
 									}
 								} else {

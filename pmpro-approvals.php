@@ -1063,13 +1063,12 @@ class PMPro_Approvals {
 		$order_status = 'success';
 		 $last_order->getLastMemberOrder( $user_id, $order_status );
 		//$order = $last_order->getMemberOrderByID($last_order_id);
-		//$payment_indent_id = 'pi_1LaKClEh60sQ5jrB9BYLYAEa';
+		$payment_intent_id = 'pi_1LcVGWEh60sQ5jrBrzj46gvT';
 		$payment_intent_id = $last_order->notes;
 		$payment_intent = $last_order->Gateway->retrieve_payment_intent($payment_intent_id);
-		$customer_id = $payment_intent->customer;
 		
 
-		if (! $last_order->payment_transaction_id ) {
+		if (! $last_order->payment_transaction_id && $payment_intent_id && $payment_intent  ) {
 			$params = array(
 				'expand' => array(
 					'payment_method',
@@ -1085,21 +1084,25 @@ class PMPro_Approvals {
 			// Payment should now be processed.
 			$payment_transaction_id = $confirm_payment->charges->data[0]->id;
 			$last_order->payment_transaction_id = $payment_transaction_id;
+			
 		}
-		/*if ( pmpro_isLevelRecurring( $user_level ) && ! $last_order->subscription_transaction_id ) {
-			$subscription = $last_order->Gateway->create_subscription_for_customer_from_order( $customer_id, $last_order );
-			$last_order->PaymentAmount = $last_order->subtotal;
-			var_dump($last_order);
-			die();
+		if ( $payment_intent && $payment_intent_id ) {
+			//$customer = $payment_intent_id->customer;
+			$customer_id = $payment_intent->customer;
+		}
+		//Create subscription if level is recurring.
+		if ( pmpro_isLevelRecurring( $user_level ) && ! $last_order->subscription_transaction_id && $customer_id ) {
+			$last_order->PaymentAmount = $user_level->billing_amount;
+			$last_order->BillingPeriod    = $user_level->cycle_period;
+			$last_order->BillingFrequency = $user_level->cycle_number;
+			$subscription = $last_order->Gateway->create_subscription_for_customer_from_order($customer_id, $last_order );
 			if ( empty( $subscription ) ) {
 				// There was an issue creating the subscription.
 				$last_order->error      = __( 'Error creating subscription for customer.', 'paid-memberships-pro' );
 				$last_order->shorterror = $order->error;
 				return false;
 			}
-			$last_order->stripe_subscription = $subscription;
 			$setup_intent = $subscription->pending_setup_intent;
-
 			if ( ! empty( $setup_intent->status ) && 'requires_action' === $setup_intent->status ) {
 				// We will need to reload the page to authenticate, so save the subscription ID in the setup intent
 				// so that we don't lose it.
@@ -1119,8 +1122,7 @@ class PMPro_Approvals {
 			// Successfully created a subscription.
 			$subscription_transaction_id = $subscription->id;
 			$last_order->subscription_transaction_id = $subscription_transaction_id;
-
-		}*/
+		}
 		$last_order->saveOrder();
 
 		// update user meta to save timestamp and user who approved.

@@ -2425,8 +2425,8 @@ class PMProGateway_etsStripe extends PMProGateway
 			return false;
 		}
 
-
 		$price = $this->get_price_for_product( $product_id, $amount, $order->BillingPeriod, $order->BillingFrequency );
+		
 		if ( empty( $price ) ) {
 			$order->error = esc_html__( 'Cannot get price.', 'paid-memberships-pro' );
 			return false;
@@ -4116,7 +4116,7 @@ class PMProGateway_etsStripe extends PMProGateway
 	 * @deprecated 2.7.0. Use process_subscriptions() instead.
 	 */
 	public function subscribe( &$order, $checkout = true ) {
-		_deprecated_function( __FUNCTION__, '2.7.0' );
+		//_deprecated_function( __FUNCTION__, '2.7.0' );
 		global $pmpro_currency;
 
 		//create a code for the order
