@@ -21,6 +21,7 @@ define('PMPRO_APPROVAL_VERSION', '1.0');
 function pmpro_approvals_plugins_loaded() {
 	require PMPRO_APP_DIR . '/classes/class.approvalemails.php';
 	require PMPRO_APP_DIR . '/classes/class.pmprogateway_etsstripe.php';
+	require PMPRO_APP_DIR . '/classes/class.pmpro-admin-setting.php';
 
 }
 add_action( 'plugins_loaded', 'pmpro_approvals_plugins_loaded' );
@@ -131,16 +132,6 @@ class PMPro_Approvals {
 
 		//plugin row meta
 		add_filter( 'plugin_row_meta', array( 'PMPro_Approvals', 'plugin_row_meta' ), 10, 2 );
-		add_filter( 'pmpro_allowed_refunds_gateways', array( 'PMPro_Approvals', 'pmpro_allowed_refunds_gateways' ), 10 );
-	}
-
-	public static function pmpro_allowed_refunds_gateways($allowed_gateways)
-	{
-		//$allowed_gateways = array('etsstripe');
-
-		array_push($allowed_gateways,'etsstripe');
-		
-		return $allowed_gateways;
 	}
 
 	/**
@@ -1066,8 +1057,7 @@ class PMPro_Approvals {
 		$payment_intent_id = 'pi_1LcVGWEh60sQ5jrBrzj46gvT';
 		$payment_intent_id = $last_order->notes;
 		$payment_intent = $last_order->Gateway->retrieve_payment_intent($payment_intent_id);
-		
-
+	
 		if (! $last_order->payment_transaction_id && $payment_intent_id && $payment_intent  ) {
 			$params = array(
 				'expand' => array(

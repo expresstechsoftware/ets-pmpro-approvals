@@ -162,7 +162,7 @@ selected="selected"<?php } ?>><?php _e( 'All Levels', 'pmpro-approvals' ); ?></o
 				<th><?php _e( 'Membership', 'pmpro-approvals' ); ?></th>			
 				<th><?php _e( 'Professional Title', 'pmpro-approvals' ); ?></th>			
 				<th><?php _e( 'View CV', 'pmpro-approvals' ); ?></th>
-				<th><?php _e( 'Sponsorship letter', 'pmpro-approvals' ); ?></th>
+				<th><?php _e( 'Sponsorship Letter', 'pmpro-approvals' ); ?></th>
 				<th><?php _e( 'Approval Status', 'pmpro-approvals' ); ?></th>
 				<th><a href="<?php echo admin_url( 'admin.php?page=pmpro-approvals&s=' . esc_attr( $s ) . '&limit=' . $limit . '&pn=' . $pn . '&sortby=user_registered' ); ?>
 										<?php

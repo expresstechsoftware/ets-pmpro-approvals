@@ -2375,7 +2375,7 @@ class PMProGateway_etsStripe extends PMProGateway
 	 * @param MemberOrder $order to calculate trial period days for.
 	 * @return int trial period days.
 	 */
-	private function calculate_trial_period_days( $order ) {
+	public function calculate_trial_period_days( $order ) {
 		// Use a trial period to set the first recurring payment date.
 		if ( $order->BillingPeriod == "Year" ) {
 			$days_in_billing_period = $order->BillingFrequency * 365;    //annual
@@ -2387,6 +2387,14 @@ class PMProGateway_etsStripe extends PMProGateway
 			$days_in_billing_period = $order->BillingFrequency * 30;    //assume monthly
 		}
 		$trial_period_days = $order->BillingFrequency * $days_in_billing_period;
+
+		$level_id = $order->membership_id;
+		$recurring_stripe_custom_date = get_pmpro_membership_level_meta( $level_id, '_pmpro_recurring_stripe_custom_date', true );
+
+		if ( !empty( $recurring_stripe_custom_date ) ) {
+			$trial_period_days = ceil( abs( strtotime( date_i18n( "Y-m-d\TH:i:s" ), current_time( "timestamp" ) ) - strtotime($recurring_stripe_custom_date, current_time( "timestamp" ) ) )/86400);
+		}
+		//var_dump($order,$days_in_billing_period,$trial_period_days,$order->BillingFrequency);
 
 		// For free trials, multiply the trial period for each additional free period.
 		if ( ! empty( $order->TrialBillingCycles ) && $order->TrialAmount == 0 ) {
