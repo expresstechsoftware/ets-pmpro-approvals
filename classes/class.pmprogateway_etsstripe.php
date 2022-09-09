@@ -177,6 +177,8 @@ class PMProGateway_etsStripe extends PMProGateway
 		add_action( 'admin_init', array( 'PMProGateway_etsStripe', 'stripe_connect_save_options' ) );
 		add_action( 'admin_notices', array( 'PMProGateway_etsStripe', 'stripe_connect_show_errors' ) );
 		add_action( 'admin_notices', array( 'PMProGateway_etsStripe', 'stripe_connect_deauthorize' ) );
+
+		add_filter( 'pmpro_process_refund_etsstripe', array( 'PMProGateway_etsStripe', 'process_refund' ), 10, 2 );
 	}
 
 	/**
@@ -213,7 +215,7 @@ class PMProGateway_etsStripe extends PMProGateway
 	 */
 	public static function pmpro_gateways( $gateways ) {
 		if ( empty( $gateways['etsstripe'] ) ) {
-			$gateways['etsstripe'] = __( 'Ets Stripe', 'paid-memberships-pro' );
+			$gateways['etsstripe'] = __( 'ETS Stripe', 'paid-memberships-pro' );
 		}
 
 		return $gateways;
@@ -292,7 +294,6 @@ class PMProGateway_etsStripe extends PMProGateway
 			// Break the country cache in case new credentials were saved.
 			delete_transient( 'pmpro_stripe_account_country' );
 		}
-		var_dump($gateway);
 		?>
 			<tr class="pmpro_settings_divider gateway gateway_etsstripe" <?php if ( $gateway != "etsstripe" ) { ?>style="display: none;"<?php } ?>>		
 			<td colspan="2">
@@ -311,7 +312,7 @@ class PMProGateway_etsStripe extends PMProGateway
 							var div = btn.closest('.pmpro_settings_divider');							
 							btn.parent().remove();
 							jQuery('.pmpro_stripe_legacy_keys').show();
-							jQuery('.pmpro_stripe_legacy_keys').addClass('gateway_stripe');
+							jQuery('.pmpro_stripe_legacy_keys').addClass('gateway_etsstripe');
 							jQuery('#stripe_publishablekey').focus();
 						});
 					});
@@ -394,7 +395,7 @@ class PMProGateway_etsStripe extends PMProGateway
 			<th><?php _e( 'Stripe API Version', 'paid-memberships-pro' ); ?>:</th>
 			<td><code><?php echo PMPRO_ETS_STRIPE_API_VERSION; ?></code></td>
 		</tr>
-		<tr class="gateway gateway_stripe" <?php if ( $gateway != "etsstripe" ) { ?>style="display: none;"<?php } ?>>
+		<tr class="gateway gateway_etsstripe" <?php if ( $gateway != "etsstripe" ) { ?>style="display: none;"<?php } ?>>
 			<th scope="row" valign="top">
 				<label for="stripe_billingaddress"><?php _e( 'Show Billing Address Fields', 'paid-memberships-pro' ); ?>:</label>
 			</th>
@@ -408,7 +409,7 @@ class PMProGateway_etsStripe extends PMProGateway
 				<p class="description"><?php _e( "Stripe doesn't require billing address fields. Choose 'No' to hide them on the checkout page.<br /><strong>If No, make sure you disable address verification in the Stripe dashboard settings.</strong>", 'paid-memberships-pro' ); ?></p>
 			</td>
 		</tr>
-		<tr class="gateway gateway_stripe" <?php if ( $gateway != "etsstripe" ) { ?>style="display: none;"<?php } ?>>
+		<tr class="gateway gateway_etsstripe" <?php if ( $gateway != "etsstripe" ) { ?>style="display: none;"<?php } ?>>
 			<th scope="row" valign="top">
 				<label for="stripe_payment_request_button"><?php _e( 'Enable Payment Request Button', 'paid-memberships-pro' ); ?>:</label>
 			</th>
@@ -468,7 +469,7 @@ class PMProGateway_etsStripe extends PMProGateway
 						'title' => array(),
 					),
 				);
-				echo '<tr class="gateway gateway_stripe"';
+				echo '<tr class="gateway gateway_etsstripe"';
 				if ( $gateway != "etsstripe" ) { 
 					echo ' style="display: none;"';
 				}
@@ -2389,7 +2390,7 @@ class PMProGateway_etsStripe extends PMProGateway
 		$trial_period_days = $order->BillingFrequency * $days_in_billing_period;
 
 		$level_id = $order->membership_id;
-		$recurring_stripe_custom_date = get_pmpro_membership_level_meta( $level_id, '_pmpro_recurring_stripe_custom_date', true );
+		$recurring_stripe_custom_date = get_pmpro_membership_level_meta( $level_id, '_pmpro_recurring_stripe_custom_full_date', true );
 
 		if ( !empty( $recurring_stripe_custom_date ) ) {
 			$trial_period_days = ceil( abs( strtotime( date_i18n( "Y-m-d\TH:i:s" ), current_time( "timestamp" ) ) - strtotime($recurring_stripe_custom_date, current_time( "timestamp" ) ) )/86400);
@@ -4286,6 +4287,91 @@ class PMProGateway_etsStripe extends PMProGateway
 		_deprecated_function( __FUNCTION__, '2.7.0' );
 		//stripe doesn't differentiate between voids and refunds, so let's just pass on to the refund function
 		return $this->refund( $order, $transaction_id );
+	}
+	
+	/**
+	 * Refunds an order (only supports full amounts)
+	 *
+	 * @param bool    $success Status of the refund (default: false)
+	 * @param object  $order The Member Order Object
+	 * @since 2.8
+	 * 
+	 * @return bool   Status of the processed refund
+	 */
+	public static function process_refund( $success, $order ) {
+
+		//default to using the payment id from the order
+		if ( !empty( $order->payment_transaction_id ) ) {
+			$transaction_id = $order->payment_transaction_id;
+		}
+
+		//need a transaction id
+		if ( empty( $transaction_id ) ) {
+			return false;
+		}
+
+		//if an invoice ID is passed, get the charge/payment id
+		if ( strpos( $transaction_id, "in_" ) !== false ) {
+			$invoice = Stripe_Invoice::retrieve( $transaction_id );
+
+			if ( ! empty( $invoice ) && ! empty( $invoice->charge ) ) {
+				$transaction_id = $invoice->charge;
+			}
+		}
+
+		$success = false;
+
+		//attempt refund
+		try {
+			
+			$secretkey = pmpro_getOption( 'stripe_secretkey' );
+
+			// If they are not using legacy keys, get Stripe Connect keys for the relevant environment.
+			if ( ! self::using_legacy_keys() && empty( $secretkey ) ) {
+				if ( pmpro_getOption( 'gateway_environment' ) === 'live' ) {
+					$secretkey = pmpro_getOption( 'live_stripe_connect_secretkey' );
+				} else {
+					$secretkey = pmpro_getOption( 'sandbox_stripe_connect_secretkey' );
+				}
+			} 
+
+			$client = new Stripe_Client( $secretkey );
+			$refund = $client->refunds->create( [
+				'charge' => $transaction_id,
+			] );			
+
+			//Make sure we're refunding an order that was successful
+			if ( $refund->status != 'failed' ) {
+				$order->status = 'refunded';	
+
+				$success = true;
+			
+				global $current_user;
+
+				$order->notes = trim( $order->notes.' '.sprintf( __('Admin: Order successfully refunded on %1$s for transaction ID %2$s by %3$s.', 'paid-memberships-pro' ), date_i18n('Y-m-d H:i:s'), $transaction_id, $current_user->display_name ) );	
+
+				$user = get_user_by( 'id', $order->user_id );
+				//send an email to the member
+				$myemail = new PMProEmail();
+				$myemail->sendRefundedEmail( $user, $order );
+
+				//send an email to the admin
+				$myemail = new PMProEmail();
+				$myemail->sendRefundedAdminEmail( $user, $order );
+
+			} else {
+				$order->notes = trim( $order->notes . ' ' . __('Admin: An error occured while attempting to process this refund.', 'paid-memberships-pro' ) );
+			}
+
+		} catch ( \Throwable $e ) {			
+			$order->notes = trim( $order->notes . ' ' . __( 'Admin: There was a problem processing the refund', 'paid-memberships-pro' ) . ' ' . $e->getMessage() );	
+		} catch ( \Exception $e ) {
+			$order->notes = trim( $order->notes . ' ' . __( 'Admin: There was a problem processing the refund', 'paid-memberships-pro' ) . ' ' . $e->getMessage() );
+		}		
+
+		$order->saveOrder();
+
+		return $success;
 	}
 
 	/**

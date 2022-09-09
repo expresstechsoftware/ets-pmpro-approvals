@@ -77,7 +77,7 @@ if ( empty( $_REQUEST['user_id'] ) ) {
 				} else {
 					echo PMPro_Approvals::getUserApprovalStatus( $user->ID, null, false );
 				?>
-				[<a href="javascript:askfirst('Are you sure you want to reset approval for <?php echo esc_attr( $user->user_login ); ?>?', '?page=pmpro-approvals&user_id=<?php echo $user->ID; ?>&unapprove=<?php echo $user->ID; ?>');">X</a>]
+				<!--[<a href="javascript:askfirst('Are you sure you want to reset approval for <?php echo esc_attr( $user->user_login ); ?>?', '?page=pmpro-approvals&user_id=<?php echo $user->ID; ?>&unapprove=<?php echo $user->ID; ?>');">X</a>]-->
 				<?php
 				}   // end of email confirmation check.
 			} else {

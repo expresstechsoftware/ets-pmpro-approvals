@@ -80,30 +80,31 @@ if ( ! empty( $_REQUEST['approve'] ) ) {
 		<label class="hidden" for="post-search-input"><?php _e( 'Search Approvals', 'pmpro-approvals' ); ?>:</label>
 		<input type="hidden" name="page" value="pmpro-approvals" />
 		<input type="hidden" name="status" value="<?php echo esc_attr( $status ); ?>" />		
-		<input id="post-search-input" type="text" value="<?php echo esc_attr( $s ); ?>" name="s"/>
-		<input class="button" type="submit" value="<?php _e( 'Search Approvals', 'pmpro-approvals' ); ?>"/>
+		<input id="post-search-input" type="hidden" value="<?php echo esc_attr( $s ); ?>" name="s"/>
+		<!-- <input class="button" type="submit" value="<?php _e( 'Search Approvals', 'pmpro-approvals' ); ?>"/> -->
 	</p>
 	<div class="tablenav top">	
-		<?php _e( 'Show', 'pmpro-approvals' ); ?> <select name="l" onchange="jQuery('#posts-filter').submit();">
-		<option value="" 
-		<?php
-		if ( ! $l ) {
-?>
-selected="selected"<?php } ?>><?php _e( 'All Levels', 'pmpro-approvals' ); ?></option>
-		<?php
+		<?php _e( 'Show', 'pmpro-approvals' ); ?> 
+		<select name="l" onchange="jQuery('#posts-filter').submit();">
+			<option value="" 
+				<?php
+				if ( ! $l ) {
+				?>
+				selected="selected"<?php } ?>><?php _e( 'All Levels', 'pmpro-approvals' ); ?></option>
+			<?php
 			$approval_level_ids = PMPro_Approvals::getApprovalLevels();
 			$levels             = $wpdb->get_results( "SELECT id, name FROM $wpdb->pmpro_membership_levels WHERE id IN(" . implode( ',', $approval_level_ids ) . ') ORDER BY name' );
-		foreach ( $levels as $level ) {
-		?>
-		<option value="<?php echo $level->id; ?>" 
+			foreach ( $levels as $level ) {
+			?>
+				<option value="<?php echo $level->id; ?>" 
 									<?php
 									if ( $l == $level->id ) {
 							?>
 							selected="selected"<?php } ?>><?php echo $level->name; ?></option>
-		<?php
-		}
-		?>
-	</select>
+			<?php
+			}
+			?>
+		</select>
 	</div>
 	<?php
 		//some vars for the search
@@ -151,6 +152,7 @@ selected="selected"<?php } ?>><?php _e( 'All Levels', 'pmpro-approvals' ); ?></o
 		<?php
 	}
 	?>
+	
 	<table class="widefat">
 		<thead>
 			<tr class="thead">
@@ -182,10 +184,10 @@ selected="selected"<?php } ?>><?php _e( 'All Levels', 'pmpro-approvals' ); ?></o
 				if ( get_user_meta($theuser->ID,'professional_title', true) ) {
 					$professional_title = get_user_meta($theuser->ID,'professional_title', true);
 				}
-				$fullurl = '';
+				$full_url = '';
 				$document_cv = get_user_meta($theuser->ID,'document_cv', true);
 				if ( $document_cv && is_array($document_cv) ) {
-					$fullurl = $document_cv['fullurl'];
+					$full_cv_url = $document_cv['fullurl'];
 				}
 				$letter_url = '';
 				$sponsorship_letter = get_user_meta($theuser->ID,'document_sponsorletter', true);
@@ -196,8 +198,8 @@ selected="selected"<?php } ?>><?php _e( 'All Levels', 'pmpro-approvals' ); ?></o
 					<tr 
 					<?php
 					if ( $count++ % 2 == 0 ) {
-?>
-class="alternate"<?php } ?>>
+						?>
+					class="alternate"<?php } ?>>
 						<td><?php echo $theuser->ID; ?></td>
 						<td class="username column-username">
 							<?php echo get_avatar( $theuser->ID, 32 ); ?>								
@@ -238,10 +240,27 @@ class="alternate"<?php } ?>>
 								?>
 							</td>
 							<td>
-								<a href="<?php echo $fullurl;?>" target="_blank"><?php _e( 'View CV', 'pmpro-approvals' ); ?></a>
+								<?php
+								if ( $full_cv_url ) {
+									?>
+									<a href="<?php echo $full_cv_url;?>" target="_blank"><?php _e( 'View CV', 'pmpro-approvals' ); ?></a>
+									<?php
+								} else {
+									echo "-";
+								}
+								?>
+								
 							</td>
 							<td>
-								<a href="<?php echo $letter_url;?>" target="_blank"><?php _e( 'View letter', 'pmpro-approvals' ); ?></a>
+								<?php
+								if ( $letter_url ) {
+									?>
+									<a href="<?php echo $letter_url;?>" target="_blank"><?php _e( 'View letter', 'pmpro-approvals' ); ?></a>
+									<?php
+								} else {
+									echo "-";
+								}
+								?>
 							</td>						
 							<td>										
 								<?php
@@ -274,21 +293,23 @@ class="alternate"<?php } ?>>
 					<?php
 			}
 
-			if ( ! $theusers ) {
+			/*if ( ! $theusers ) {
 				?>
 				<tr>
 				<td colspan="9"><p><?php _e( 'No pending members found.', 'pmpro-approvals' ); ?></p></td>
 				</tr>
 				<?php
-			}
+			}*/
 			?>
 					
 		</tbody>
 	</table>
 	</form>
-	
+	<script type="text/javascript">
+		jQuery('.widefat').DataTable();
+	</script>
 	<?php
-	echo pmpro_getPaginationString( $pn, $totalrows, $limit, 1, get_admin_url( null, '/admin.php?page=pmpro-approvals&s=' . urlencode( $s ) ), "&l=$l&limit=$limit&status=$status&sortby=$sortby&sortorder=$sortorder&pn=" );
+	//echo pmpro_getPaginationString( $pn, $totalrows, $limit, 1, get_admin_url( null, '/admin.php?page=pmpro-approvals&s=' . urlencode( $s ) ), "&l=$l&limit=$limit&status=$status&sortby=$sortby&sortorder=$sortorder&pn=" );
 	?>
 	
 <?php
