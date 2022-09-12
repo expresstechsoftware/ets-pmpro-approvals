@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: Paid Memberships Pro - Approvals Add On
+Plugin Name: Paid Memberships Pro - Approvals Add On By Expresstech
 Plugin URI: https://www.paidmembershipspro.com/add-ons/approval-process-membership/
 Description: Grants administrators the ability to approve/deny memberships after signup.
 Version: 1.4.3
@@ -11,12 +11,18 @@ Domain Path: /languages
 */
 
 define( 'PMPRO_APP_DIR', dirname( __FILE__ ) );
+// create plugin url constant.
+define( 'PMPRO_APP_URL', plugin_dir_url( __FILE__ ) );
+define('PMPRO_APPROVAL_VERSION', '1.0');
 
 /**
  * Only load approvals after plugins have been loaded. Otherwise it may be loaded too early (e.g., before PMPro).
  */
 function pmpro_approvals_plugins_loaded() {
 	require PMPRO_APP_DIR . '/classes/class.approvalemails.php';
+	require PMPRO_APP_DIR . '/classes/class.pmprogateway_etsstripe.php';
+	require PMPRO_APP_DIR . '/classes/class.pmpro-admin-setting.php';
+
 }
 add_action( 'plugins_loaded', 'pmpro_approvals_plugins_loaded' );
 
@@ -71,6 +77,12 @@ class PMPro_Approvals {
 		add_action( 'admin_bar_menu', array( 'PMPro_Approvals', 'admin_bar_menu' ), 1000 );
 		add_action( 'admin_init', array( 'PMPro_Approvals', 'admin_init' ) );
 
+		// Add script for front end.
+		add_action( 'wp_enqueue_scripts', array( 'PMPro_Approvals', 'pmpro_approvals_add_script' ) );
+
+		add_action( 'admin_enqueue_scripts', array( 'PMPro_Approvals', 'pmpro_approvals_add_admin_script' ) );
+
+
 		//add user actions to the approvals page
 		add_filter( 'pmpro_approvals_user_row_actions', array( 'PMPro_Approvals', 'pmpro_approvals_user_row_actions' ), 10, 2 );
 
@@ -123,6 +135,48 @@ class PMPro_Approvals {
 
 		//plugin row meta
 		add_filter( 'plugin_row_meta', array( 'PMPro_Approvals', 'plugin_row_meta' ), 10, 2 );
+	}
+
+	/**
+	* Added style on frontend
+	*/
+	public static function pmpro_approvals_add_script(){
+		wp_register_style(
+			'pmpro-approval-style',
+			PMPRO_APP_URL . 'assets/css/ets-pmpro-approval-frontend.css',
+			false,
+			PMPRO_APPROVAL_VERSION
+		);
+		wp_enqueue_style('pmpro-approval-style');
+	}
+
+	/**
+	* Added style on frontend
+	*/
+	public static function pmpro_approvals_add_admin_script(){
+		wp_register_style(
+			'pmpro-approval-admin-style',
+			PMPRO_APP_URL . 'assets/css/admin/pmpro-approval-admin.css',
+			false,
+			PMPRO_APPROVAL_VERSION
+		);
+		wp_enqueue_style('pmpro-approval-admin-style');
+		wp_register_style(
+			'pmpro_approvals_datatable_css',
+			PMPRO_APP_URL . 'assets/css/jquery.dataTables.min.css',
+			array(),
+			PMPRO_APPROVAL_VERSION
+		);
+		wp_register_script(
+			'pmpro_approvals_datatable_js',
+			PMPRO_APP_URL . 'assets/js/jquery.dataTables.min.js',
+			array(),
+			PMPRO_APPROVAL_VERSION
+		);
+		if ( isset( $_GET['page'] ) && $_GET['page'] == 'pmpro-approvals' ) {
+			wp_enqueue_style('pmpro_approvals_datatable_css');
+			wp_enqueue_script('pmpro_approvals_datatable_js');
+		}
 	}
 
 	/**
@@ -1028,6 +1082,97 @@ class PMPro_Approvals {
 
 		do_action( 'pmpro_approvals_before_approve_member', $user_id, $level_id );
 
+		//complete intent payment
+		$last_order = new MemberOrder();
+		$order_status = 'success';
+		$last_order->getLastMemberOrder( $user_id, $order_status );
+		if($last_order->gateway == 'etsstripe'){
+			//$order = $last_order->getMemberOrderByID($last_order_id);
+			$payment_intent_id = $last_order->notes;
+			$payment_intent = $last_order->Gateway->retrieve_payment_intent($payment_intent_id);
+		
+			if (! $last_order->payment_transaction_id && $payment_intent_id && $payment_intent  ) {
+				$params = array(
+					'expand' => array(
+						'payment_method',
+						'customer'
+					),
+				);
+				if($confirm_payment->charges->data[0]){
+					$last_order->payment_transaction_id = $confirm_payment->charges->data[0]->id;
+				} else {					
+					try{
+						$confirm_payment = $payment_intent->confirm( $params );
+
+					} catch ( Stripe\Error\Base $e ) {
+						$msgt = $e->getMessage();
+						//return false;
+					} catch ( \Throwable $e ) {
+						$msgt = $e->getMessage();
+						//return false;
+					} catch ( \Exception $e ) {
+						$msgt = $e->getMessage();
+						//return false;
+					}
+					if ( is_string( $confirm_payment ) ) {
+						$order->error      = __( 'Error processing payment intent.', 'paid-memberships-pro' ) . ' ' . $confirm_payment;
+						$order->shorterror = $order->error;
+						return false;
+					}
+					// Payment should now be processed.
+					$payment_transaction_id = $confirm_payment->charges->data[0]->id;
+					$last_order->payment_transaction_id = $payment_transaction_id;
+				}
+			}
+			if ( $payment_intent && $payment_intent_id ) {
+				//$customer = $payment_intent_id->customer;
+				$customer_id = $payment_intent->customer;
+			}
+			//Create subscription if level is recurring.
+			if ( pmpro_isLevelRecurring( $user_level ) && ! $last_order->subscription_transaction_id && $customer_id ) {
+				$last_order->PaymentAmount = $user_level->billing_amount;
+				$last_order->BillingPeriod    = $user_level->cycle_period;
+				$last_order->BillingFrequency = $user_level->cycle_number;
+				try{
+					$subscription = $last_order->Gateway->create_subscription_for_customer_from_order($customer_id, $last_order );
+				}
+				catch ( Stripe\Error\Base $e ) {
+					$msgt = $e->getMessage();
+				} catch ( \Throwable $e ) {
+					$msgt = $e->getMessage();
+				} catch ( \Exception $e ) {
+					$msgt = $e->getMessage();
+				}
+				if ( empty( $subscription ) ) {
+					// There was an issue creating the subscription.
+					$last_order->error      = __( 'Error creating subscription for customer.', 'paid-memberships-pro' );
+					$last_order->shorterror = $order->error;
+					return false;
+				}
+				$setup_intent = $subscription->pending_setup_intent;
+				if ( ! empty( $setup_intent->status ) && 'requires_action' === $setup_intent->status ) {
+					// We will need to reload the page to authenticate, so save the subscription ID in the setup intent
+					// so that we don't lose it.
+					$setup_intent = $last_order->Gateway->add_subscription_id_to_setup_intent( $setup_intent, $subscription->id );
+					if ( is_string( $setup_intent ) ) {
+						$last_order->error      = $setup_intent;
+						$last_order->shorterror = $last_order->error;
+						return false;
+					}
+					$last_order->stripe_setup_intent = $setup_intent;
+					$last_order->errorcode = true;
+					$last_order->error     = __( 'Customer authentication is required to finish setting up your subscription. Please complete the verification steps issued by your payment provider.', 'paid-memberships-pro' );
+		
+					return false;
+				}
+
+				// Successfully created a subscription.
+				$subscription_transaction_id = $subscription->id;
+				$last_order->subscription_transaction_id = $subscription_transaction_id;
+			}
+		}
+		$last_order->saveOrder();
+
 		// update user meta to save timestamp and user who approved.
 		update_user_meta(
 			$user_id, 'pmpro_approval_' . $level_id, array(
@@ -1476,7 +1621,7 @@ class PMPro_Approvals {
 					if ( self::isPending( $user->ID, $level_id ) ) {
 ?>
 style="display: none;"<?php } ?>>
-						[<a href="javascript:askfirst('Are you sure you want to reset approval for <?php echo $user->user_login; ?>?', '?&user_id=<?php echo $user->ID; ?>&unapprove=<?php echo $user->ID; ?>');">X</a>]
+						<!--[<a href="javascript:askfirst('Are you sure you want to reset approval for <?php echo $user->user_login; ?>?', '?&user_id=<?php echo $user->ID; ?>&unapprove=<?php echo $user->ID; ?>');">X</a>]-->
 					</span>
 					<span id="pmpro_approvals_approve_deny_links" 
 					<?php

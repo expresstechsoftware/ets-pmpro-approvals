@@ -80,30 +80,31 @@ if ( ! empty( $_REQUEST['approve'] ) ) {
 		<label class="hidden" for="post-search-input"><?php _e( 'Search Approvals', 'pmpro-approvals' ); ?>:</label>
 		<input type="hidden" name="page" value="pmpro-approvals" />
 		<input type="hidden" name="status" value="<?php echo esc_attr( $status ); ?>" />		
-		<input id="post-search-input" type="text" value="<?php echo esc_attr( $s ); ?>" name="s"/>
-		<input class="button" type="submit" value="<?php _e( 'Search Approvals', 'pmpro-approvals' ); ?>"/>
+		<input id="post-search-input" type="hidden" value="<?php echo esc_attr( $s ); ?>" name="s"/>
+		<!-- <input class="button" type="submit" value="<?php _e( 'Search Approvals', 'pmpro-approvals' ); ?>"/> -->
 	</p>
 	<div class="tablenav top">	
-		<?php _e( 'Show', 'pmpro-approvals' ); ?> <select name="l" onchange="jQuery('#posts-filter').submit();">
-		<option value="" 
-		<?php
-		if ( ! $l ) {
-?>
-selected="selected"<?php } ?>><?php _e( 'All Levels', 'pmpro-approvals' ); ?></option>
-		<?php
+		<?php _e( 'Show', 'pmpro-approvals' ); ?> 
+		<select name="l" onchange="jQuery('#posts-filter').submit();">
+			<option value="" 
+				<?php
+				if ( ! $l ) {
+				?>
+				selected="selected"<?php } ?>><?php _e( 'All Levels', 'pmpro-approvals' ); ?></option>
+			<?php
 			$approval_level_ids = PMPro_Approvals::getApprovalLevels();
 			$levels             = $wpdb->get_results( "SELECT id, name FROM $wpdb->pmpro_membership_levels WHERE id IN(" . implode( ',', $approval_level_ids ) . ') ORDER BY name' );
-		foreach ( $levels as $level ) {
-		?>
-		<option value="<?php echo $level->id; ?>" 
+			foreach ( $levels as $level ) {
+			?>
+				<option value="<?php echo $level->id; ?>" 
 									<?php
 									if ( $l == $level->id ) {
 							?>
 							selected="selected"<?php } ?>><?php echo $level->name; ?></option>
-		<?php
-		}
-		?>
-	</select>
+			<?php
+			}
+			?>
+		</select>
 	</div>
 	<?php
 		//some vars for the search
@@ -151,6 +152,7 @@ selected="selected"<?php } ?>><?php _e( 'All Levels', 'pmpro-approvals' ); ?></o
 		<?php
 	}
 	?>
+	
 	<table class="widefat">
 		<thead>
 			<tr class="thead">
@@ -159,7 +161,10 @@ selected="selected"<?php } ?>><?php _e( 'All Levels', 'pmpro-approvals' ); ?></o
 				<th><?php _e( 'Name', 'pmpro-approvals' ); ?></th>				
 				<th><?php _e( 'Email', 'pmpro-approvals' ); ?></th>
 				<?php do_action( 'pmpro_approvals_list_extra_cols_header', $theusers ); ?>
-				<th><?php _e( 'Membership', 'pmpro-approvals' ); ?></th>					
+				<th><?php _e( 'Membership', 'pmpro-approvals' ); ?></th>			
+				<th><?php _e( 'Professional Title', 'pmpro-approvals' ); ?></th>			
+				<th><?php _e( 'View CV', 'pmpro-approvals' ); ?></th>
+				<th><?php _e( 'Sponsorship Letter', 'pmpro-approvals' ); ?></th>
 				<th><?php _e( 'Approval Status', 'pmpro-approvals' ); ?></th>
 				<th><a href="<?php echo admin_url( 'admin.php?page=pmpro-approvals&s=' . esc_attr( $s ) . '&limit=' . $limit . '&pn=' . $pn . '&sortby=user_registered' ); ?>
 										<?php
@@ -173,14 +178,28 @@ selected="selected"<?php } ?>><?php _e( 'All Levels', 'pmpro-approvals' ); ?></o
 				$count = 0;
 			foreach ( $theusers as $auser ) {
 				//get meta
+				$professional_title = '-';
 				$theuser                   = get_userdata( $auser->ID );
 				$theuser->membership_level = pmpro_getMembershipLevelForUser( $theuser->ID );
+				if ( get_user_meta($theuser->ID,'professional_title', true) ) {
+					$professional_title = get_user_meta($theuser->ID,'professional_title', true);
+				}
+				$full_url = '';
+				$document_cv = get_user_meta($theuser->ID,'document_cv', true);
+				if ( $document_cv && is_array($document_cv) ) {
+					$full_cv_url = $document_cv['fullurl'];
+				}
+				$letter_url = '';
+				$sponsorship_letter = get_user_meta($theuser->ID,'document_sponsorletter', true);
+				if ( $sponsorship_letter && is_array($sponsorship_letter) ) {
+					$letter_url = $sponsorship_letter['fullurl'];
+				}
 				?>
 					<tr 
 					<?php
 					if ( $count++ % 2 == 0 ) {
-?>
-class="alternate"<?php } ?>>
+						?>
+					class="alternate"<?php } ?>>
 						<td><?php echo $theuser->ID; ?></td>
 						<td class="username column-username">
 							<?php echo get_avatar( $theuser->ID, 32 ); ?>								
@@ -206,13 +225,41 @@ class="alternate"<?php } ?>>
 								echo $out;
 							}
 								?>
-							</td>
+						</td>
 							<td><?php echo trim( $theuser->first_name . ' ' . $theuser->last_name ); ?></td>							
 							<td><a href="mailto:<?php echo $theuser->user_email; ?>"><?php echo $theuser->user_email; ?></a></td>
 							<?php do_action( 'pmpro_approvals_list_extra_cols_body', $theuser ); ?>						
 							<td>
 								<?php
 								echo $auser->membership;
+								?>
+							</td>
+							<td>
+								<?php
+								echo $professional_title;
+								?>
+							</td>
+							<td>
+								<?php
+								if ( $full_cv_url ) {
+									?>
+									<a href="<?php echo $full_cv_url;?>" target="_blank"><?php _e( 'View CV', 'pmpro-approvals' ); ?></a>
+									<?php
+								} else {
+									echo "-";
+								}
+								?>
+								
+							</td>
+							<td>
+								<?php
+								if ( $letter_url ) {
+									?>
+									<a href="<?php echo $letter_url;?>" target="_blank"><?php _e( 'View letter', 'pmpro-approvals' ); ?></a>
+									<?php
+								} else {
+									echo "-";
+								}
 								?>
 							</td>						
 							<td>										
@@ -229,7 +276,7 @@ class="alternate"<?php } ?>>
 
 										//link to unapprove
 										?>
-										[<a href="javascript:askfirst('Are you sure you want to reset approval for <?php echo $theuser->user_login; ?>?', '?page=pmpro-approvals&s=<?php echo esc_attr( $s ); ?>&l=<?php echo $l; ?>&limit=<?php echo intval( $limit ); ?>&status=<?php echo $status; ?>&sortby=<?php echo $sortby; ?>&sortorder=<?php echo $sortorder; ?>&pn=<?php echo intval( $pn ); ?>&unapprove=<?php echo $theuser->ID; ?>&pmpro_approvals_nonce=<?php echo urlencode( $pmpro_approvals_nonce ); ?>');">X</a>]
+										<!-- [<a href="javascript:askfirst('Are you sure you want to reset approval for <?php echo $theuser->user_login; ?>?', '?page=pmpro-approvals&s=<?php echo esc_attr( $s ); ?>&l=<?php echo $l; ?>&limit=<?php echo intval( $limit ); ?>&status=<?php echo $status; ?>&sortby=<?php echo $sortby; ?>&sortorder=<?php echo $sortorder; ?>&pn=<?php echo intval( $pn ); ?>&unapprove=<?php echo $theuser->ID; ?>&pmpro_approvals_nonce=<?php echo urlencode( $pmpro_approvals_nonce ); ?>');">X</a>] -->
 										<?php
 									}
 								} else {
@@ -246,21 +293,23 @@ class="alternate"<?php } ?>>
 					<?php
 			}
 
-			if ( ! $theusers ) {
+			/*if ( ! $theusers ) {
 				?>
 				<tr>
 				<td colspan="9"><p><?php _e( 'No pending members found.', 'pmpro-approvals' ); ?></p></td>
 				</tr>
 				<?php
-			}
+			}*/
 			?>
 					
 		</tbody>
 	</table>
 	</form>
-	
+	<script type="text/javascript">
+		jQuery('.widefat').DataTable();
+	</script>
 	<?php
-	echo pmpro_getPaginationString( $pn, $totalrows, $limit, 1, get_admin_url( null, '/admin.php?page=pmpro-approvals&s=' . urlencode( $s ) ), "&l=$l&limit=$limit&status=$status&sortby=$sortby&sortorder=$sortorder&pn=" );
+	//echo pmpro_getPaginationString( $pn, $totalrows, $limit, 1, get_admin_url( null, '/admin.php?page=pmpro-approvals&s=' . urlencode( $s ) ), "&l=$l&limit=$limit&status=$status&sortby=$sortby&sortorder=$sortorder&pn=" );
 	?>
 	
 <?php
